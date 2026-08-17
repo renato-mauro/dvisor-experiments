@@ -77,7 +77,7 @@ Each run produces `results/<tier>-<timestamp>/` — Markdown only, no raw CSVs:
 - `network-summary.md` — the same network capture section, standalone.
 
 Raw, cumulative data also lives in `dvisor-tests-auto/results/` (JSON per
-engine, plus `runs.csv`/`tables.md`/`tables.tex`) and `webserver/figures/`
+engine, plus `runs.csv`/`tables.md`/`tables.tex`) and `webserver/network-report/`
 (`results.csv`/`network-summary.md`) — these accumulate across runs and are
 what `report.md` is built from.
 

@@ -123,8 +123,8 @@ mkdir -p "$REPORT_DIR"
     cat "$ROOT_DIR/dvisor-tests-auto/results/tables.md"
   fi
   echo
-  if [[ -f "$ROOT_DIR/webserver/figures/network-summary.md" ]]; then
-    cat "$ROOT_DIR/webserver/figures/network-summary.md"
+  if [[ -f "$ROOT_DIR/webserver/network-report/network-summary.md" ]]; then
+    cat "$ROOT_DIR/webserver/network-report/network-summary.md"
   fi
 } > "$REPORT_DIR/report.md"
 
@@ -132,7 +132,7 @@ mkdir -p "$REPORT_DIR"
 # request count and bytes transferred (n_requests / total_bytes_mb columns),
 # kept alongside report.md (which already embeds the same content) so it's
 # also available standalone.
-cp "$ROOT_DIR/webserver/figures/network-summary.md" "$REPORT_DIR/" 2>/dev/null || true
+cp "$ROOT_DIR/webserver/network-report/network-summary.md" "$REPORT_DIR/" 2>/dev/null || true
 
 ELAPSED=$SECONDS
 echo

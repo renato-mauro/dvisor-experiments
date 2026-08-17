@@ -28,7 +28,7 @@ services:
     build: ./analysis
     volumes:
       - ./logs:/logs:ro
-      - ./figures:/figures
+      - ./network-report:/network-report
       - ./analysis:/app
     profiles:
       - tools
