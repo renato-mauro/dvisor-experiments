@@ -103,8 +103,3 @@ run-experiment.sh
        │               inside the container reaches nginx directly
        └─ analysis    parses nginx's access.log into a network-level report
 ```
-
-## Manual / non-Docker usage
-
-For iterating on `dvisor-tests-auto` directly (e.g. against a locally
-running nginx on port 8080), see [dvisor-tests-auto/HOWTO.md](dvisor-tests-auto/HOWTO.md).
