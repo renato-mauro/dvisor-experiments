@@ -35,6 +35,11 @@ This single command, running entirely in Docker:
 Requires Docker with Compose v2. No local Node/Python/Playwright install
 needed — everything runs in containers.
 
+**Environment note:** experiments for this paper were executed on both
+Linux and macOS hosts. Since the pipeline runs entirely inside Docker
+containers, results should be reproducible regardless of host OS, but this
+has only been verified on those two.
+
 ## Tiers
 
 | Tier | Scale factors | Approx. data | Use case |
