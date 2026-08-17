@@ -128,8 +128,11 @@ mkdir -p "$REPORT_DIR"
   fi
 } > "$REPORT_DIR/report.md"
 
-cp "$ROOT_DIR/dvisor-tests-auto/results/runs.csv" "$REPORT_DIR/" 2>/dev/null || true
-cp "$ROOT_DIR/webserver/figures/results.csv" "$REPORT_DIR/network-results.csv" 2>/dev/null || true
+# Markdown only — no raw CSVs. network-summary.md carries the per-experiment
+# request count and bytes transferred (n_requests / total_bytes_mb columns),
+# kept alongside report.md (which already embeds the same content) so it's
+# also available standalone.
+cp "$ROOT_DIR/webserver/figures/network-summary.md" "$REPORT_DIR/" 2>/dev/null || true
 
 ELAPSED=$SECONDS
 echo

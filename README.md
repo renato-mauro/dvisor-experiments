@@ -69,18 +69,17 @@ network only.
 
 ## Output
 
-Each run produces `results/<tier>-<timestamp>/`:
+Each run produces `results/<tier>-<timestamp>/` — Markdown only, no raw CSVs:
 
 - `report.md` — combined report: Dvisor/DuckDB timing tables (median TTF,
-  TQ, rows, throughput) plus the nginx-log-derived network capture, per
-  scale factor and query.
-- `runs.csv` — every individual run, flat.
-- `network-results.csv` — parsed nginx access log, one row per experiment.
+  TQ, rows, throughput) plus the nginx-log-derived network capture (request
+  count and bytes transferred per experiment), per scale factor and query.
+- `network-summary.md` — the same network capture section, standalone.
 
-Raw, cumulative results also live in `dvisor-tests-auto/results/` (JSON per
-engine, plus `tables.md`/`tables.tex`) and `webserver/figures/` (network
-report) — these accumulate across runs and are what `report.md` is built
-from.
+Raw, cumulative data also lives in `dvisor-tests-auto/results/` (JSON per
+engine, plus `runs.csv`/`tables.md`/`tables.tex`) and `webserver/figures/`
+(`results.csv`/`network-summary.md`) — these accumulate across runs and are
+what `report.md` is built from.
 
 ## Data
 
