@@ -9,6 +9,7 @@ webserver/logs/*.log.*.bak
 results/
 dvisor-tests-auto/results/
 webserver/network-report/
+dvisor-tests-auto/package-lock.json
 
 # Node
 node_modules/

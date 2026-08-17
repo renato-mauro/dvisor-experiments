@@ -64,6 +64,11 @@ those files to change queries, thread counts, or runs-per-combination.
 Re-running is incremental — combinations that already have enough runs are
 skipped, so interrupting and re-running is safe.
 
+Both the Dvisor/DuckDB results and the nginx access log accumulate across
+runs (they're the same cumulative history `report.md` is built from), so a
+run that adds nothing new to the history is expected to look identical to
+the last one — that's not a bug. `--clear` resets both and starts fresh.
+
 ## Scope: LAN only
 
 All configs use `"sources": ["local"]`. The underlying test harness also

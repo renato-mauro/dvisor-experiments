@@ -57,12 +57,17 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# 1. Archive the previous access log so this run's network capture is clean.
+# 1. The access log accumulates across runs, same as dvisor-tests-auto's
+# results (so the network capture stays consistent with the Dvisor/DuckDB
+# tables, which are also cumulative across all history, not just this run).
+# Only reset it when --clear is passed, mirroring run.js's own --clear.
 step 1 "Preparing..."
 LOGFILE="$ROOT_DIR/webserver/logs/access.log"
-if [[ -s "$LOGFILE" ]]; then
+CLEAR=0
+for arg in "$@"; do [[ "$arg" == "--clear" ]] && CLEAR=1; done
+if [[ "$CLEAR" -eq 1 && -s "$LOGFILE" ]]; then
   mv "$LOGFILE" "${LOGFILE}.${STAMP}.bak"
-  echo "    Archived previous access.log -> $(basename "$LOGFILE").${STAMP}.bak"
+  echo "    --clear: archived previous access.log -> $(basename "$LOGFILE").${STAMP}.bak"
 fi
 
 # 2. Build images, then bring up data-init (downloads only the missing SFs) + nginx.
@@ -94,9 +99,8 @@ if [[ "$RUNS_AFTER" -eq "$RUNS_BEFORE" ]]; then
   echo
   echo "    NOTE: no new runs were executed — every combination in $CONFIG"
   echo "    already had enough historical runs (see 'skip' lines above)."
-  echo "    report.md's tables reflect prior history; its network capture"
-  echo "    will be empty, since no requests were made this time. Pass"
-  echo "    --clear to force a fresh run."
+  echo "    report.md reflects all history to date, same as always; pass"
+  echo "    --clear to force a fresh run instead of reusing history."
 fi
 
 # 4. Parse the nginx access log into a network-level report.
@@ -114,9 +118,8 @@ mkdir -p "$REPORT_DIR"
   echo "- Mode: LAN only"
   if [[ "$RUNS_AFTER" -eq "$RUNS_BEFORE" ]]; then
     echo "- **No new runs executed** — every combination already had enough"
-    echo "  historical runs. Tables below reflect prior history; the network"
-    echo "  capture section is empty because no requests were made this run."
-    echo "  Pass \`--clear\` to force a fresh run."
+    echo "  historical runs. Everything below reflects all history to date,"
+    echo "  not just this invocation. Pass \`--clear\` to force a fresh run."
   fi
   echo
   if [[ -f "$ROOT_DIR/dvisor-tests-auto/results/tables.md" ]]; then
