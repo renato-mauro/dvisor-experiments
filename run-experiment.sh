@@ -46,6 +46,9 @@ REPORT_DIR="$ROOT_DIR/results/${TIER}-${STAMP}"
 
 compose() { docker compose -f "$COMPOSE_FILE" "$@"; }
 
+step() { echo; echo "==> [$1/5] $2"; }
+
+SECONDS=0
 echo "==> Tier: $TIER  (config=$CONFIG, scale factors: $DATA_SCALES)"
 
 cleanup() {
@@ -55,28 +58,30 @@ cleanup() {
 trap cleanup EXIT
 
 # 1. Archive the previous access log so this run's network capture is clean.
+step 1 "Preparing..."
 LOGFILE="$ROOT_DIR/webserver/logs/access.log"
 if [[ -s "$LOGFILE" ]]; then
   mv "$LOGFILE" "${LOGFILE}.${STAMP}.bak"
-  echo "==> Archived previous access.log -> $(basename "$LOGFILE").${STAMP}.bak"
+  echo "    Archived previous access.log -> $(basename "$LOGFILE").${STAMP}.bak"
 fi
 
 # 2. Build images, then bring up data-init (downloads only the missing SFs) + nginx.
-echo "==> Building images..."
+step 2 "Building images..."
 compose --profile tools build
 
-echo "==> Starting server..."
+step 2 "Starting server (downloading any missing scale factors)..."
 compose up -d nginx
 
 # 3. Run the automated experiments (Playwright, inside Docker, LAN only).
-echo "==> Running experiments ($CONFIG)..."
+step 3 "Running experiments ($CONFIG)..."
 compose --profile tools run --rm tests --config="$CONFIG" "$@"
 
 # 4. Parse the nginx access log into a network-level report.
-echo "==> Running log analysis..."
+step 4 "Running log analysis..."
 compose --profile tools run --rm analysis
 
 # 5. Assemble the final Markdown report.
+step 5 "Assembling report..."
 mkdir -p "$REPORT_DIR"
 {
   echo "# Experiment Report — ${TIER} (SFs: ${DATA_SCALES})"
@@ -97,5 +102,6 @@ mkdir -p "$REPORT_DIR"
 cp "$ROOT_DIR/dvisor-tests-auto/results/runs.csv" "$REPORT_DIR/" 2>/dev/null || true
 cp "$ROOT_DIR/webserver/figures/results.csv" "$REPORT_DIR/network-results.csv" 2>/dev/null || true
 
+ELAPSED=$SECONDS
 echo
-echo "==> Done. Report: $REPORT_DIR/report.md"
+printf "==> Done in %02d:%02d:%02d. Report: %s\n" $((ELAPSED/3600)) $((ELAPSED%3600/60)) $((ELAPSED%60)) "$REPORT_DIR/report.md"

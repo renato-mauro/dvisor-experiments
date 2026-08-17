@@ -192,6 +192,26 @@ async function runOne(browser, engine, { source, threads, query, sf }) {
   }
 }
 
+// ── Overall progress (across all combinations, both engines) ────────────────
+function countTotalRuns() {
+  const { sources, queries, scalefactors } = config;
+  let total = 0;
+  if (config.dvisor.enabled && !ONLY_DK) {
+    total += sources.length * config.dvisor.threads.length * queries.length * scalefactors.length * config.dvisor.runsPerCombination;
+  }
+  if (config.duckdb.enabled && !ONLY_DV) {
+    total += sources.length * queries.length * scalefactors.length * config.duckdb.runsPerCombination;
+  }
+  return total;
+}
+
+const progress = { done: 0, total: countTotalRuns() };
+
+function overall() {
+  const pct = progress.total ? ((progress.done / progress.total) * 100).toFixed(0) : 0;
+  return `[overall ${progress.done}/${progress.total} · ${pct}%]`;
+}
+
 // ── Dvisor experiment loop ────────────────────────────────────────────────────
 async function runDvisor(browser) {
   console.log('\n══ Dvisor ══════════════════════════════');
@@ -208,13 +228,15 @@ async function runDvisor(browser) {
           const needed = runsPerCombination - runs.length;
 
           if (needed <= 0) {
+            progress.done += runsPerCombination;
             console.log(`  skip  dvisor ${source} ${threads}T ${query} SF=${sf} (${runs.length}/${runsPerCombination} runs)`);
             continue;
           }
 
           for (let i = runs.length; i < runsPerCombination; i++) {
             const tag = `dvisor ${source} ${threads}T ${query} SF=${sf} [${i + 1}/${runsPerCombination}]`;
-            console.log(`  →  ${tag}`);
+            progress.done += 1;
+            console.log(`  →  ${tag}  ${overall()}`);
 
             try {
               const result = await runOne(browser, 'dvisor', { source, threads, query, sf });
@@ -257,13 +279,15 @@ async function runDuckDB(browser) {
         const needed = runsPerCombination - runs.length;
 
         if (needed <= 0) {
+          progress.done += runsPerCombination;
           console.log(`  skip  duckdb ${source} ${query} SF=${sf} (${runs.length}/${runsPerCombination} runs)`);
           continue;
         }
 
         for (let i = runs.length; i < runsPerCombination; i++) {
           const tag = `duckdb ${source} ${query} SF=${sf} [${i + 1}/${runsPerCombination}]`;
-          console.log(`  →  ${tag}`);
+          progress.done += 1;
+          console.log(`  →  ${tag}  ${overall()}`);
 
           try {
             const result = await runOne(browser, 'duck', { source, query, sf });
