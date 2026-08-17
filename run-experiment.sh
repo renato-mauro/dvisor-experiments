@@ -5,6 +5,9 @@
 # inside Docker), parses the nginx access log, and writes a combined
 # Markdown report. LAN only — no WAN runs are part of this experiment set.
 #
+# Every run starts from zero: previous Dvisor/DuckDB results and the nginx
+# access log are cleared before running, no resuming/skipping of prior runs.
+#
 # Usage:
 #   ./run-experiment.sh <quick|medium|full> [extra run.js flags]
 #
@@ -15,7 +18,6 @@
 #
 # Examples:
 #   ./run-experiment.sh quick
-#   ./run-experiment.sh quick --clear
 #   ./run-experiment.sh full --dvisor
 set -euo pipefail
 
@@ -57,17 +59,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# 1. The access log accumulates across runs, same as dvisor-tests-auto's
-# results (so the network capture stays consistent with the Dvisor/DuckDB
-# tables, which are also cumulative across all history, not just this run).
-# Only reset it when --clear is passed, mirroring run.js's own --clear.
-step 1 "Preparing..."
+# 1. Every run starts from zero — no resuming/skipping prior runs. Archive
+# the previous access log so the network capture matches the fresh
+# Dvisor/DuckDB results (run.js gets --clear below, which wipes its own
+# results/runs.csv the same way).
+step 1 "Preparing (starting fresh — clearing previous results)..."
 LOGFILE="$ROOT_DIR/webserver/logs/access.log"
-CLEAR=0
-for arg in "$@"; do [[ "$arg" == "--clear" ]] && CLEAR=1; done
-if [[ "$CLEAR" -eq 1 && -s "$LOGFILE" ]]; then
+if [[ -s "$LOGFILE" ]]; then
   mv "$LOGFILE" "${LOGFILE}.${STAMP}.bak"
-  echo "    --clear: archived previous access.log -> $(basename "$LOGFILE").${STAMP}.bak"
+  echo "    Archived previous access.log -> $(basename "$LOGFILE").${STAMP}.bak"
 fi
 
 # 2. Build images, then bring up data-init (downloads only the missing SFs) + nginx.
@@ -88,19 +88,18 @@ until [[ "$(compose ps -q nginx | xargs docker inspect -f '{{.State.Health.Statu
 done
 
 # 3. Run the automated experiments (Playwright, inside Docker, LAN only).
+# --clear is always forced: every invocation starts from zero, no
+# resuming/skipping combinations from a prior run.
 step 3 "Running experiments ($CONFIG)..."
 RUNS_CSV="$ROOT_DIR/dvisor-tests-auto/results/runs.csv"
-RUNS_BEFORE=$( [[ -f "$RUNS_CSV" ]] && wc -l < "$RUNS_CSV" || echo 0 )
 
-compose --profile tools run --no-deps --rm tests --config="$CONFIG" "$@"
+compose --profile tools run --no-deps --rm tests --config="$CONFIG" --clear "$@"
 
 RUNS_AFTER=$( [[ -f "$RUNS_CSV" ]] && wc -l < "$RUNS_CSV" || echo 0 )
-if [[ "$RUNS_AFTER" -eq "$RUNS_BEFORE" ]]; then
+if [[ "$RUNS_AFTER" -le 1 ]]; then
   echo
-  echo "    NOTE: no new runs were executed — every combination in $CONFIG"
-  echo "    already had enough historical runs (see 'skip' lines above)."
-  echo "    report.md reflects all history to date, same as always; pass"
-  echo "    --clear to force a fresh run instead of reusing history."
+  echo "    WARNING: no runs completed successfully — check the output above"
+  echo "    for errors. report.md/network-summary.md will be empty or stale."
 fi
 
 # 4. Parse the nginx access log into a network-level report.
@@ -116,10 +115,9 @@ mkdir -p "$REPORT_DIR"
   echo "- Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "- Config: dvisor-tests-auto/${CONFIG}"
   echo "- Mode: LAN only"
-  if [[ "$RUNS_AFTER" -eq "$RUNS_BEFORE" ]]; then
-    echo "- **No new runs executed** — every combination already had enough"
-    echo "  historical runs. Everything below reflects all history to date,"
-    echo "  not just this invocation. Pass \`--clear\` to force a fresh run."
+  if [[ "$RUNS_AFTER" -le 1 ]]; then
+    echo "- **WARNING: no runs completed successfully** — see console output"
+    echo "  for errors."
   fi
   echo
   if [[ -f "$ROOT_DIR/dvisor-tests-auto/results/tables.md" ]]; then

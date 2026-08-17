@@ -54,20 +54,17 @@ has only been verified on those two.
 ./run-experiment.sh full
 
 # Extra flags are passed through to dvisor-tests-auto/run.js:
-./run-experiment.sh quick --clear     # discard existing results, start fresh
 ./run-experiment.sh quick --dvisor    # only the Dvisor engine
 ./run-experiment.sh quick --duckdb    # only DuckDB-WASM
 ```
 
 Each tier maps to `dvisor-tests-auto/experiment-config-<tier>.json`. Edit
 those files to change queries, thread counts, or runs-per-combination.
-Re-running is incremental — combinations that already have enough runs are
-skipped, so interrupting and re-running is safe.
 
-Both the Dvisor/DuckDB results and the nginx access log accumulate across
-runs (they're the same cumulative history `report.md` is built from), so a
-run that adds nothing new to the history is expected to look identical to
-the last one — that's not a bug. `--clear` resets both and starts fresh.
+Every invocation starts from zero: previous Dvisor/DuckDB results and the
+nginx access log are cleared before running (`run-experiment.sh` always
+passes `run.js --clear`). There is no resuming/skipping of a prior run —
+each run is a clean, self-contained measurement.
 
 ## Scope: LAN only
 
@@ -86,10 +83,10 @@ Each run produces `results/<tier>-<timestamp>/` — Markdown only, no raw CSVs:
   count and bytes transferred per experiment), per scale factor and query.
 - `network-summary.md` — the same network capture section, standalone.
 
-Raw, cumulative data also lives in `dvisor-tests-auto/results/` (JSON per
-engine, plus `runs.csv`/`tables.md`/`tables.tex`) and `webserver/network-report/`
-(`results.csv`/`network-summary.md`) — these accumulate across runs and are
-what `report.md` is built from.
+Raw data also lives in `dvisor-tests-auto/results/` (JSON per engine, plus
+`runs.csv`/`tables.md`/`tables.tex`) and `webserver/network-report/`
+(`results.csv`/`network-summary.md`) — these are what `report.md` is built
+from, and get wiped and regenerated fresh at the start of every run.
 
 ## Data
 
