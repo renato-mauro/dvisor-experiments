@@ -72,13 +72,23 @@ compose --profile tools build
 step 2 "Starting server (downloading any missing scale factors)..."
 compose up -d nginx
 
+# `run --no-deps` below is intentional: nginx is already confirmed healthy by
+# this point, so we skip Compose's dependency resolution for the `tests`/
+# `analysis` runs. Without --no-deps, every `run` re-walks nginx's own
+# dependency chain and reruns data-init from scratch (a second full pass of
+# per-file network HEAD checks against the manifest URLs) even though nginx
+# is already up — harmless, but slow and easy to mistake for a redownload.
+until [[ "$(compose ps -q nginx | xargs docker inspect -f '{{.State.Health.Status}}' 2>/dev/null)" == "healthy" ]]; do
+  sleep 1
+done
+
 # 3. Run the automated experiments (Playwright, inside Docker, LAN only).
 step 3 "Running experiments ($CONFIG)..."
-compose --profile tools run --rm tests --config="$CONFIG" "$@"
+compose --profile tools run --no-deps --rm tests --config="$CONFIG" "$@"
 
 # 4. Parse the nginx access log into a network-level report.
 step 4 "Running log analysis..."
-compose --profile tools run --rm analysis
+compose --profile tools run --no-deps --rm analysis
 
 # 5. Assemble the final Markdown report.
 step 5 "Assembling report..."
