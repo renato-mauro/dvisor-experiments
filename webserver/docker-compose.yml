@@ -1,0 +1,46 @@
+services:
+  data-init:
+    build: ./scripts
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./data:/data
+    environment:
+      - DATA_SCALES
+
+  nginx:
+    image: nginx:alpine
+    depends_on:
+      data-init:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./data:/usr/share/nginx/data:ro
+      - ./logs:/var/log/nginx
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/start.html"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  analysis:
+    build: ./analysis
+    volumes:
+      - ./logs:/logs:ro
+      - ./figures:/figures
+      - ./analysis:/app
+    profiles:
+      - tools
+    command: ["sh", "run_analysis.sh"]
+
+  tests:
+    build: ../dvisor-tests-auto
+    network_mode: "service:nginx"
+    depends_on:
+      nginx:
+        condition: service_healthy
+    volumes:
+      - ../dvisor-tests-auto/results:/app/results
+    profiles:
+      - tools

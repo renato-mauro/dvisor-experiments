@@ -1,0 +1,14 @@
+{
+  "name": "dvisor-tests-auto",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "setup": "npx playwright install chromium",
+    "run": "node run.js",
+    "tables": "node generate-tables.js"
+  },
+  "dependencies": {
+    "playwright": "1.60.0"
+  }
+}

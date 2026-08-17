@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dvisor Headless Runner</title>
+</head>
+<body>
+<pre id="status">initializing…</pre>
+<script type="module">
+  const params  = new URLSearchParams(location.search);
+  const source  = params.get('source')  || 'wan';
+  const threads = Number(params.get('threads') || 4);
+  const query   = params.get('query')   || 'q01';
+  const sf      = Number(params.get('sf') || 1);
+
+  const statusEl = document.getElementById('status');
+  function log(msg) {
+    statusEl.textContent = msg;
+    console.log('[dvisor-runner]', msg);
+  }
+
+  const sourcePrefix = {
+    wan:   'https://storage.googleapis.com/dvisor/tpch',
+    local: 'http://localhost:8080/data'
+  };
+
+  const queries = {
+    q01: (prefix, sf) => ({
+      from: `${prefix}/lineitem-sf${sf}.parquet`,
+      project: [
+        { expr: 'l_shipdate',  alias: 'date' },
+        { expr: 'count()',     alias: 'value' },
+        { expr: 'count()',     alias: 'rows_scanned' }
+      ]
+    }),
+
+    q02: (prefix, sf) => ({
+      from: `${prefix}/lineitem-sf${sf}.parquet`,
+      project: [
+        { expr: 'dateTruncMonth(l_shipdate)', alias: 'month' },
+        { expr: 'sum(l_extendedprice)',       alias: 'revenue' },
+        { expr: 'sum(l_quantity)',            alias: 'total_qty' },
+        { expr: 'count()',                    alias: 'rows_scanned' }
+      ]
+    }),
+
+    q03: (prefix, sf) => ({
+      from: `${prefix}/lineitem-sf${sf}-shipdate.parquet`,
+      filter: [
+        { expr: 'l_shipdate', oper: 'GE', value: '1993-01-01' },
+        { expr: 'l_shipdate', oper: 'LE', value: '1994-12-31' },
+      ],
+      project: [
+        { expr: 'dateTruncMonth(l_shipdate)',          alias: 'month' },
+        { expr: 'sum(l_extendedprice*(1-l_discount))', alias: 'revenue' },
+        { expr: 'sum(l_quantity)',                     alias: 'total_qty' },
+        { expr: 'count()',                             alias: 'rows_scanned' }
+      ]
+    })
+  };
+
+  async function run() {
+    try {
+      log(`source=${source} threads=${threads} query=${query} sf=${sf}`);
+
+      const { Dvisor } = await import('./js/dvisor-web-lib.min.js');
+      const prefix   = sourcePrefix[source];
+      const queryDef = queries[query](prefix, sf);
+
+      if (!queryDef) {
+        window.__result = { skipped: true };
+        window.__done   = true;
+        log('skipped — not applicable for this sf');
+        return;
+      }
+
+      const dvisor      = new Dvisor(threads);
+      let   rowsScanned = 0;
+      let   frameCount  = 0;
+      let   ttfMs       = null;
+      const start       = Date.now();
+
+      if (source === 'local') {
+        const qs = new URLSearchParams({ technology: 'dvisor', scaleFactor: sf, queryId: query, threads }).toString();
+        await fetch(`http://localhost:8080/start.html?${qs}`).catch(() => {});
+      }
+
+      for await (const data of dvisor.exec(queryDef)) {
+        frameCount++;
+        const elapsed = Date.now() - start;
+
+        if (Array.isArray(data) && data.length && data[0].rows_scanned !== undefined) {
+          rowsScanned = data.reduce((s, d) => s + (d.rows_scanned || 0), 0);
+        }
+
+        if (frameCount === 1) ttfMs = elapsed;
+        log(`frame ${frameCount} · ${elapsed}ms · ${rowsScanned} rows`);
+      }
+
+      const tq = Date.now() - start;
+
+      window.__result = {
+        ttf:    ttfMs ?? tq,
+        tq,
+        rows:   rowsScanned,
+        frames: frameCount,
+        ts:     Date.now()
+      };
+      window.__done = true;
+      log(`done · tq=${tq}ms · ttf=${ttfMs ?? tq}ms · frames=${frameCount}`);
+
+    } catch (err) {
+      window.__error = err.message;
+      window.__done  = true;
+      console.error('[dvisor-runner] error:', err);
+      document.getElementById('status').textContent = 'ERROR: ' + err.message;
+    }
+  }
+
+  run();
+</script>
+</body>
+</html>

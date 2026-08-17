@@ -1,0 +1,15 @@
+{
+  "sources": ["local"],
+  "queries": ["q01", "q02", "q03"],
+  "scalefactors": [1, 10, 30, 50, 100],
+  "dvisor": {
+    "enabled": true,
+    "threads": [4],
+    "runsPerCombination": 5
+  },
+  "duckdb": {
+    "enabled": true,
+    "runsPerCombination": 5
+  },
+  "serverPort": 9191
+}

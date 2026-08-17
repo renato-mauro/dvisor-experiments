@@ -1,0 +1,15 @@
+# Downloaded experiment data (fetched by data-init / download_data.sh)
+webserver/data/
+
+# nginx logs (regenerated per run; archived copies are kept as .bak)
+webserver/logs/*.log
+webserver/logs/*.log.*.bak
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+
+# Claude Code session state
+.claude/

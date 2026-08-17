@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DuckDB Headless Runner</title>
+</head>
+<body>
+<pre id="status">initializing…</pre>
+<script type="module">
+  import * as duckdb from 'https://esm.sh/@duckdb/duckdb-wasm@1.29.0';
+
+  const params = new URLSearchParams(location.search);
+  const source = params.get('source') || 'wan';
+  const query  = params.get('query')  || 'q01';
+  const sf     = Number(params.get('sf') || 1);
+
+  const statusEl = document.getElementById('status');
+  function log(msg) {
+    statusEl.textContent = msg;
+    console.log('[duck-runner]', msg);
+  }
+
+  const sourcePrefix = {
+    wan:   'https://storage.googleapis.com/dvisor/tpch',
+    local: 'http://localhost:8080/data'
+  };
+
+  const queries = {
+    q01: (prefix, sf) => `
+      SELECT l_shipdate AS date, COUNT(*) AS value, COUNT(*) AS rows_scanned
+      FROM '${prefix}/lineitem-sf${sf}.parquet'
+      GROUP BY 1 ORDER BY 1`,
+
+    q02: (prefix, sf) => `
+      SELECT date_trunc('month', l_shipdate) AS month,
+             CAST(SUM(l_extendedprice) AS DOUBLE) AS revenue,
+             CAST(SUM(l_quantity) AS DOUBLE) AS total_qty,
+             COUNT(*) AS rows_scanned
+      FROM read_parquet('${prefix}/lineitem-sf${sf}.parquet')
+      GROUP BY 1 ORDER BY 1`,
+
+    q03: (prefix, sf) => `
+      SELECT date_trunc('month', l_shipdate) AS month,
+             CAST(SUM(l_extendedprice * (1.0 - l_discount)) AS FLOAT) AS revenue,
+             CAST(SUM(l_quantity) AS FLOAT) AS total_qty,
+             CAST(COUNT(*) AS INTEGER) AS rows_scanned
+      FROM read_parquet('${prefix}/lineitem-sf${sf}-shipdate.parquet')
+      WHERE l_shipdate >= '1993-01-01' AND l_shipdate <= '1994-12-31'
+      GROUP BY 1 ORDER BY 1`,
+  };
+
+  async function initDuckDB() {
+    if (window._db) return;
+    const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
+    const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
+    const worker_url = URL.createObjectURL(
+      new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' })
+    );
+    const worker = new Worker(worker_url);
+    const logger = new duckdb.ConsoleLogger();
+    const db     = new duckdb.AsyncDuckDB(logger, worker);
+    window._db   = db;
+    await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+  }
+
+  async function run() {
+    try {
+      log(`source=${source} query=${query} sf=${sf}`);
+
+      const prefix = sourcePrefix[source];
+      const sql    = queries[query](prefix, sf);
+
+      if (!sql) {
+        window.__result = { skipped: true };
+        window.__done   = true;
+        log('skipped — not applicable for this sf');
+        return;
+      }
+
+      log('initializing DuckDB-WASM…');
+      await initDuckDB();
+      log('DuckDB ready · running query…');
+
+      const start = Date.now();
+
+      if (source === 'local') {
+        const qs = new URLSearchParams({ technology: 'duckdb', scaleFactor: sf, queryId: query }).toString();
+        await fetch(`http://localhost:8080/start.html?${qs}`).catch(() => {});
+      }
+
+      const conn  = await window._db.connect();
+      const resp  = await conn.query(sql);
+      await conn.close();
+      const tq = Date.now() - start;
+
+      let rowsScanned = 0;
+      for (const row of resp.toArray()) {
+        rowsScanned += Number(row.rows_scanned ?? 0);
+      }
+
+      window.__result = {
+        ttf:    tq,
+        tq,
+        rows:   rowsScanned,
+        frames: 1,
+        ts:     Date.now()
+      };
+      window.__done = true;
+      log(`done · tq=${tq}ms · rows=${rowsScanned}`);
+
+    } catch (err) {
+      window.__error = err.message;
+      window.__done  = true;
+      console.error('[duck-runner] error:', err);
+      document.getElementById('status').textContent = 'ERROR: ' + err.message;
+    }
+  }
+  run();
+</script>
+</body>
+</html>
