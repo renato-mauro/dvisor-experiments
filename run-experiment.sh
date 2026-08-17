@@ -84,7 +84,20 @@ done
 
 # 3. Run the automated experiments (Playwright, inside Docker, LAN only).
 step 3 "Running experiments ($CONFIG)..."
+RUNS_CSV="$ROOT_DIR/dvisor-tests-auto/results/runs.csv"
+RUNS_BEFORE=$( [[ -f "$RUNS_CSV" ]] && wc -l < "$RUNS_CSV" || echo 0 )
+
 compose --profile tools run --no-deps --rm tests --config="$CONFIG" "$@"
+
+RUNS_AFTER=$( [[ -f "$RUNS_CSV" ]] && wc -l < "$RUNS_CSV" || echo 0 )
+if [[ "$RUNS_AFTER" -eq "$RUNS_BEFORE" ]]; then
+  echo
+  echo "    NOTE: no new runs were executed — every combination in $CONFIG"
+  echo "    already had enough historical runs (see 'skip' lines above)."
+  echo "    report.md's tables reflect prior history; its network capture"
+  echo "    will be empty, since no requests were made this time. Pass"
+  echo "    --clear to force a fresh run."
+fi
 
 # 4. Parse the nginx access log into a network-level report.
 step 4 "Running log analysis..."
@@ -99,6 +112,12 @@ mkdir -p "$REPORT_DIR"
   echo "- Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "- Config: dvisor-tests-auto/${CONFIG}"
   echo "- Mode: LAN only"
+  if [[ "$RUNS_AFTER" -eq "$RUNS_BEFORE" ]]; then
+    echo "- **No new runs executed** — every combination already had enough"
+    echo "  historical runs. Tables below reflect prior history; the network"
+    echo "  capture section is empty because no requests were made this run."
+    echo "  Pass \`--clear\` to force a fresh run."
+  fi
   echo
   if [[ -f "$ROOT_DIR/dvisor-tests-auto/results/tables.md" ]]; then
     cat "$ROOT_DIR/dvisor-tests-auto/results/tables.md"
