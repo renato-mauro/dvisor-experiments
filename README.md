@@ -114,3 +114,19 @@ run-experiment.sh
        │               inside the container reaches nginx directly
        └─ analysis    parses nginx's access.log into a network-level report
 ```
+
+## License scope
+
+This repository carries three separate licenses, each covering a different
+part of it:
+
+- **[LICENSE](LICENSE)** (MIT) — the original code: the experiment harness,
+  orchestration scripts, configuration, and analysis code (`run-experiment.sh`,
+  `dvisor-tests-auto/`, `webserver/`), excluding the items below.
+- **[DATA_LICENSE.md](DATA_LICENSE.md)** (CC BY 4.0) — the result data in
+  `dvisor-tests-auto/paperdata/` (`runs.csv`, `netstats.csv`) only.
+- **[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)** — everything neither
+  of the above covers: vendored third-party files (e.g. the Dvisor web
+  engine bundle under `dvisor-tests-auto/runner/js/`), npm/Python
+  dependencies, container base images, and the externally-hosted TPC-H
+  benchmark data downloaded at run time.
