@@ -88,6 +88,11 @@ Raw data also lives in `dvisor-tests-auto/results/` (JSON per engine, plus
 (`results.csv`/`network-summary.md`) — these are what `report.md` is built
 from, and get wiped and regenerated fresh at the start of every run.
 
+The raw CSVs behind the paper's own results are committed at
+`dvisor-tests-auto/paperdata/` (`runs.csv` — per-run Dvisor/DuckDB-WASM
+timings; `netstats.csv` — per-query network capture), so the reported
+numbers can be reproduced or re-analyzed without re-running the experiments.
+
 ## Data
 
 The TPC-H Parquet files (~86 GB total across all scale factors) are not
